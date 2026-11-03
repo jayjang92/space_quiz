@@ -143,6 +143,18 @@
   .review { text-align: left; list-style: none; padding: 0; margin: 1rem 0 0; display: grid; gap: .5rem; }
   .review li { padding: .6rem .8rem; border-radius: 10px; background: #1e2260; border-left: 5px solid var(--good); }
   .review li.wrong { border-left-color: var(--bad); }
+  .answers-list { list-style: none; padding: 0; margin: 1rem 0 0; display: grid; gap: 1rem; }
+  .answer-item { padding: 1rem; border-radius: 12px; background: #1e2260; border-left: 5px solid var(--good); }
+  .answer-item.wrong { border-left-color: var(--bad); }
+  .answer-item h2 { font-size: 1.1rem; margin: 0 0 .6rem; }
+  .answer-options { list-style: none; padding: 0; margin: 0 0 .6rem; display: grid; gap: .35rem; }
+  .answer-options li { padding: .4rem .6rem; border-radius: 8px; border: 2px solid transparent; }
+  .answer-options li.is-correct { border-color: var(--good); background: rgba(46,229,157,.12); }
+  .answer-options li.is-wrong { border-color: var(--bad); background: rgba(255,107,107,.12); }
+  .answer-tag { font-weight: 700; margin-left: .4rem; }
+  .answer-status { font-weight: 700; margin: .25rem 0; }
+  .answer-fact { color: var(--muted); margin: .25rem 0 0; }
+  .actions { display: flex; flex-wrap: wrap; gap: .75rem; justify-content: center; }
 
   .sr-only {
     position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
@@ -189,7 +201,20 @@
     <p id="result-msg" class="muted"></p>
     <h2>Mission Log</h2>
     <ol class="review" id="review"></ol>
+    <button class="btn" id="review-btn" type="button" lang="ko">답안 리뷰 보기</button>
     <button class="btn" id="restart-btn" type="button">Play Again</button>
+  </section>
+
+  <!-- Answer review screen -->
+  <section id="answers" class="hidden" lang="ko" aria-labelledby="answers-title">
+    <h1 id="answers-title" tabindex="-1">답안 리뷰</h1>
+    <p id="answers-summary" class="muted"></p>
+    <button class="btn back-btn" type="button">결과로 돌아가기</button>
+    <ol class="answers-list" id="answers-list"></ol>
+    <div class="actions">
+      <button class="btn back-btn" type="button">결과로 돌아가기</button>
+      <button class="btn" id="answers-restart-btn" type="button">다시 하기</button>
+    </div>
   </section>
 </main>
 
@@ -218,7 +243,7 @@
   ];
 
   const $ = id => document.getElementById(id);
-  const screens = { start: $("start"), quiz: $("quiz"), results: $("results") };
+  const screens = { start: $("start"), quiz: $("quiz"), results: $("results"), answers: $("answers") };
   const letters = ["A", "B", "C", "D"];
   let current = 0, score = 0, history = [];
 
@@ -285,7 +310,7 @@
       $("score").textContent = `Score: ${score}`;
     }
 
-    history.push({ q: item.q, correct: isCorrect, answer: item.options[item.answer], chosen: item.options[index] });
+    history.push({ q: item.q, correct: isCorrect, answer: item.options[item.answer], chosen: item.options[index], chosenIndex: index });
     updateProgress(current + 1);
 
     const fb = $("feedback");
@@ -331,9 +356,76 @@
     $("results-title").focus();
   }
 
+  // Question data is English inside the Korean review screen.
+  function en(text) {
+    const span = document.createElement("span");
+    span.lang = "en";
+    span.textContent = text;
+    return span;
+  }
+
+  function showAnswers() {
+    show("answers");
+    const right = history.filter(h => h.correct).length;
+    $("answers-summary").textContent = `${questions.length}문제 중 ${right}개 정답, ${history.length - right}개 오답`;
+
+    const list = $("answers-list");
+    list.innerHTML = "";
+    history.forEach((h, n) => {
+      const item = questions[n];
+      const li = document.createElement("li");
+      li.className = "answer-item" + (h.correct ? "" : " wrong");
+
+      const title = document.createElement("h2");
+      title.append(`문제 ${n + 1}: `, en(item.q));
+
+      const opts = document.createElement("ul");
+      opts.className = "answer-options";
+      item.options.forEach((text, i) => {
+        const o = document.createElement("li");
+        o.append(`${letters[i]}. `, en(text));
+        let tag = "";
+        if (i === item.answer) {
+          o.className = "is-correct";
+          tag = i === h.chosenIndex ? "✓ 내가 고른 답 (정답)" : "✓ 정답";
+        } else if (i === h.chosenIndex) {
+          o.className = "is-wrong";
+          tag = "✗ 내가 고른 답";
+        }
+        if (tag) {
+          const t = document.createElement("span");
+          t.className = "answer-tag";
+          t.textContent = tag;
+          o.append(" ", t);
+        }
+        opts.appendChild(o);
+      });
+
+      const status = document.createElement("p");
+      status.className = "answer-status";
+      status.textContent = h.correct ? "✓ 정답입니다" : "✗ 오답입니다";
+
+      const fact = document.createElement("p");
+      fact.className = "answer-fact";
+      fact.append("해설: ", en(item.fact));
+
+      li.append(title, opts, status, fact);
+      list.appendChild(li);
+    });
+    $("answers-title").focus();
+  }
+
+  function backToResults() {
+    show("results");
+    $("review-btn").focus();
+  }
+
   $("start-btn").addEventListener("click", startQuiz);
   $("next-btn").addEventListener("click", nextQuestion);
   $("restart-btn").addEventListener("click", startQuiz);
+  $("review-btn").addEventListener("click", showAnswers);
+  $("answers-restart-btn").addEventListener("click", startQuiz);
+  document.querySelectorAll(".back-btn").forEach(b => b.addEventListener("click", backToResults));
 
   document.addEventListener("keydown", e => {
     if (screens.quiz.classList.contains("hidden")) return;
