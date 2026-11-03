@@ -245,7 +245,24 @@
   const $ = id => document.getElementById(id);
   const screens = { start: $("start"), quiz: $("quiz"), results: $("results"), answers: $("answers") };
   const letters = ["A", "B", "C", "D"];
-  let current = 0, score = 0, history = [];
+  let current = 0, score = 0, history = [], round = [];
+
+  function shuffle(arr) {
+    const a = arr.slice();
+    for (let i = a.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [a[i], a[j]] = [a[j], a[i]];
+    }
+    return a;
+  }
+
+  // Copies each question so the source `questions` array is never mutated.
+  function buildRound() {
+    return shuffle(questions).map(item => {
+      const order = shuffle(item.options.map((_, i) => i));
+      return { ...item, options: order.map(i => item.options[i]), answer: order.indexOf(item.answer) };
+    });
+  }
 
   function show(name) {
     Object.entries(screens).forEach(([k, el]) => el.classList.toggle("hidden", k !== name));
@@ -259,14 +276,14 @@
   }
 
   function startQuiz() {
-    current = 0; score = 0; history = [];
+    current = 0; score = 0; history = []; round = buildRound();
     $("score").textContent = "Score: 0";
     show("quiz");
     renderQuestion();
   }
 
   function renderQuestion() {
-    const item = questions[current];
+    const item = round[current];
     $("counter").textContent = `Question ${current + 1} of ${questions.length}`;
     $("question").textContent = item.q;
     updateProgress(current);
@@ -294,7 +311,7 @@
   }
 
   function choose(index) {
-    const item = questions[current];
+    const item = round[current];
     const buttons = [...$("options").querySelectorAll(".option")];
     const isCorrect = index === item.answer;
     buttons.forEach(b => b.disabled = true);
@@ -372,7 +389,7 @@
     const list = $("answers-list");
     list.innerHTML = "";
     history.forEach((h, n) => {
-      const item = questions[n];
+      const item = round[n];
       const li = document.createElement("li");
       li.className = "answer-item" + (h.correct ? "" : " wrong");
 
